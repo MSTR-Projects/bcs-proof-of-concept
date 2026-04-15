@@ -29,6 +29,7 @@ import RunSeriesStepDetail from "./pages/RunSeriesStepDetail";
 import SeriesList from "./pages/SeriesList";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import TeamPage from "./pages/TeamPage";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +51,7 @@ const App = () => (
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
+                <Route path="/team" element={<ProtectedPage><TeamPage /></ProtectedPage>} />
                 <Route path="/klanten" element={<ProtectedPage><Clients /></ProtectedPage>} />
                 <Route path="/klanten/:clientId" element={<ProtectedPage><Clients /></ProtectedPage>} />
                 <Route path="/controle/nieuw" element={<ProtectedPage><ControleWizard /></ProtectedPage>} />
