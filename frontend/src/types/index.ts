@@ -396,6 +396,7 @@ export interface Controle {
   ruleGraph: { nodes: unknown[]; edges: unknown[] } | null;
   klantId?: string;
   klantName?: string;
+  createdBy?: string;
   createdAt: string;
   updatedAt: string;
 }

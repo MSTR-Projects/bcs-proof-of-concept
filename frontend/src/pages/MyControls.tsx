@@ -5,7 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HeaderAction } from "@/context/HeaderActionContext";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Table,
   TableBody,
@@ -47,7 +49,9 @@ import type { Controle } from "@/types";
 export default function MyControls() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"alle" | "mijn">("alle");
   const [controles, setControles] = useState<Controle[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<Controle | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -73,9 +77,11 @@ export default function MyControls() {
     }
   };
 
-  const filteredControles = controles.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredControles = controles.filter(c => {
+    const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase());
+    const matchesFilter = filter === "alle" || c.createdBy === user?.email;
+    return matchesSearch && matchesFilter;
+  });
 
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -90,14 +96,22 @@ export default function MyControls() {
         </Button>
       </HeaderAction>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Zoek op naam, klant of controleur..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10 rounded-full"
-        />
+      <div className="flex items-center gap-4">
+        <Tabs value={filter} onValueChange={(v) => setFilter(v as "alle" | "mijn")}>
+          <TabsList>
+            <TabsTrigger value="alle">Alle controles</TabsTrigger>
+            <TabsTrigger value="mijn">Mijn controles</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Zoek op naam, klant of controleur..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10 rounded-full"
+          />
+        </div>
       </div>
 
       <Card className="shadow-sm">

@@ -460,6 +460,7 @@ class ControleCreate(BaseModel):
     ruleGraph: dict | None = None
     klantId: str | None = None
     klantName: str | None = None
+    createdBy: str | None = None
 
 
 class Controle(BaseModel):
@@ -473,6 +474,7 @@ class Controle(BaseModel):
     ruleGraph: dict | None = None
     klantId: str | None = None
     klantName: str | None = None
+    createdBy: str | None = None
     createdAt: datetime
     updatedAt: datetime
 

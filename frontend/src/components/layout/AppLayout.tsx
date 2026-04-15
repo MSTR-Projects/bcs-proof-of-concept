@@ -19,9 +19,9 @@ interface AppLayoutProps {
 // label + linkTo for breadcrumb segments
 const routeLabels: Record<string, { label: string; linkTo?: string }> = {
   "/": { label: "Dashboard" },
-  "/controle": { label: "Controles", linkTo: "/controles" },
+  "/controle": { label: "Alle controles", linkTo: "/controles" },
   "/controle/nieuw": { label: "Nieuwe controle" },
-  "/controles": { label: "Controles" },
+  "/controles": { label: "Alle controles" },
   "/controles/resultaten": { label: "Geschiedenis" },
   "/controles/globale-waarden": { label: "Globale waarden", linkTo: "/controles/globale-waarden" },
   "/global-values": { label: "Globale waarden", linkTo: "/controles/globale-waarden" },

@@ -6,6 +6,7 @@ import { WizardBestandenTab } from "@/components/wizard/WizardBestandenTab";
 import { WizardRegelsTab } from "@/components/wizard/WizardRegelsTab";
 import { createControle, updateControle, getControle } from "@/api/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { HeaderAction } from "@/context/HeaderActionContext";
 import { Button } from "@/components/ui/button";
 import { Save, Rocket, Loader2 } from "lucide-react";
@@ -23,6 +24,7 @@ export default function ControleWizard() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const wizardControle = useAppStore((s) => s.wizardControle);
   const wizardActiveTab = useAppStore((s) => s.wizardActiveTab);
@@ -95,7 +97,7 @@ export default function ControleWizard() {
       if (id) {
         await updateControle(id, { ...controle, status: "draft" });
       } else {
-        await createControle({ ...controle, status: "draft" });
+        await createControle({ ...controle, status: "draft", createdBy: user?.email });
       }
       toast({ title: "Concept opgeslagen" });
       clearWizard();
@@ -116,7 +118,7 @@ export default function ControleWizard() {
       if (id) {
         await updateControle(id, { ...controle, status: "published" });
       } else {
-        await createControle({ ...controle, status: "published" });
+        await createControle({ ...controle, status: "published", createdBy: user?.email });
       }
       toast({ title: "Controle gepubliceerd" });
       clearWizard();

@@ -104,10 +104,10 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Mijn controles Section */}
+        {/* Controles Section */}
         <SidebarGroup className="mt-4">
           <SidebarGroupLabel className="text-xs text-sidebar-muted font-semibold uppercase tracking-wider mb-2">
-            Mijn controles
+            Controles
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
@@ -120,7 +120,7 @@ export function AppSidebar() {
                     activeClassName="bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-sm"
                   >
                     <ListChecks className="h-5 w-5" />
-                    <span>Controles</span>
+                    <span>Alle controles</span>
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>

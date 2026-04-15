@@ -17,6 +17,7 @@ def save_controle(controle_id: str, data: ControleCreate) -> Controle:
         ruleGraph=data.ruleGraph,
         klantId=data.klantId,
         klantName=data.klantName,
+        createdBy=data.createdBy,
         createdAt=now,
         updatedAt=now,
     )
@@ -58,6 +59,7 @@ def update_controle(controle_id: str, data: ControleCreate) -> Controle | None:
         ruleGraph=data.ruleGraph,
         klantId=data.klantId,
         klantName=data.klantName,
+        createdBy=data.createdBy or existing.get("createdBy"),
         createdAt=existing.get("createdAt", datetime.now(timezone.utc).isoformat()),
         updatedAt=datetime.now(timezone.utc),
     )
