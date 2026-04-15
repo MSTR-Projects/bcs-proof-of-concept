@@ -14,6 +14,15 @@ interface TaskContextType {
   currentTeamId: string;
   setCurrentTeamId: (teamId: string) => void;
   currentTeam: Team | undefined;
+
+  // Team member management
+  addTeamMember: (email: string) => void;
+  removeTeamMember: (memberId: string) => void;
+
+  // Team-klant management
+  addKlantToTeam: (klantId: string) => void;
+  removeKlantFromTeam: (klantId: string) => void;
+  getTeamsForKlant: (klantId: string) => Team[];
   
   // Templates
   templates: Template[];
@@ -45,7 +54,7 @@ interface TaskContextType {
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
 
 export function TaskProvider({ children }: { children: ReactNode }) {
-  const [teams] = useState<Team[]>(defaultTeams);
+  const [teams, setTeams] = useState<Team[]>(defaultTeams);
   const [currentTeamId, setCurrentTeamId] = useState<string>('polaris');
   const [templates, setTemplates] = useState<Template[]>(sampleTemplates);
   const [controlRuns, setControlRuns] = useState<ControlRun[]>(sampleControlRuns);
@@ -54,6 +63,55 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   const currentUser = 'Nikki';
 
   const currentTeam = teams.find(t => t.id === currentTeamId);
+
+  // Team member management
+  const addTeamMember = (email: string) => {
+    setTeams(prev => prev.map(t =>
+      t.id === currentTeamId
+        ? {
+            ...t,
+            members: [
+              ...t.members,
+              {
+                id: `mem-${Date.now()}`,
+                email,
+                status: 'invited' as const,
+                addedAt: new Date().toISOString().split('T')[0],
+              },
+            ],
+          }
+        : t
+    ));
+  };
+
+  const removeTeamMember = (memberId: string) => {
+    setTeams(prev => prev.map(t =>
+      t.id === currentTeamId
+        ? { ...t, members: t.members.filter(m => m.id !== memberId) }
+        : t
+    ));
+  };
+
+  // Team-klant management
+  const addKlantToTeam = (klantId: string) => {
+    setTeams(prev => prev.map(t =>
+      t.id === currentTeamId && !t.klantIds.includes(klantId)
+        ? { ...t, klantIds: [...t.klantIds, klantId] }
+        : t
+    ));
+  };
+
+  const removeKlantFromTeam = (klantId: string) => {
+    setTeams(prev => prev.map(t =>
+      t.id === currentTeamId
+        ? { ...t, klantIds: t.klantIds.filter(id => id !== klantId) }
+        : t
+    ));
+  };
+
+  const getTeamsForKlant = (klantId: string) => {
+    return teams.filter(t => t.klantIds.includes(klantId));
+  };
 
   // Templates
   const getTeamTemplates = () => templates.filter(t => t.teamId === currentTeamId);
@@ -152,6 +210,11 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       teams,
       currentTeamId,
       setCurrentTeamId,
+      addTeamMember,
+      removeTeamMember,
+      addKlantToTeam,
+      removeKlantFromTeam,
+      getTeamsForKlant,
       currentTeam,
       templates,
       addTemplate,
