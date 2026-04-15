@@ -115,9 +115,18 @@ export interface TranslationRule {
 }
 
 // Team
+export interface TeamMember {
+  id: string;
+  email: string;
+  status: "active" | "invited";
+  addedAt: string;
+}
+
 export interface Team {
   id: string;
   name: string;
+  members: TeamMember[];
+  klantIds: string[];
 }
 
 export interface TaskResult {

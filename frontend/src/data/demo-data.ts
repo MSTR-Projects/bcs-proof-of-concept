@@ -1,12 +1,53 @@
-import { Template, Client, ControlRun, Team, Controleur, TranslationRule } from '@/types/task';
+import { Template, Client, ControlRun, Team, TeamMember, Controleur, TranslationRule } from '@/types/task';
 
 // Teams
 export const defaultTeams: Team[] = [
-  { id: 'polaris', name: 'Polaris' },
-  { id: 'delta', name: 'Delta' },
-  { id: 'hr-essentials', name: 'HR Essentials' },
-  { id: 'hr-enterprise', name: 'Enterprise' },
-  { id: 'cloudpay', name: 'CloudPay' },
+  {
+    id: 'polaris',
+    name: 'Polaris',
+    members: [
+      { id: 'mem-1', email: 'admin@bcs-hr.nl', status: 'active', addedAt: '2025-06-01' },
+      { id: 'mem-2', email: 'nikki@bcs-hr.nl', status: 'active', addedAt: '2025-06-01' },
+      { id: 'mem-3', email: 'sanne@bcs-hr.nl', status: 'active', addedAt: '2025-08-12' },
+    ],
+    klantIds: [],
+  },
+  {
+    id: 'delta',
+    name: 'Delta',
+    members: [
+      { id: 'mem-4', email: 'admin@bcs-hr.nl', status: 'active', addedAt: '2025-06-01' },
+      { id: 'mem-5', email: 'wouter@bcs-hr.nl', status: 'active', addedAt: '2025-07-10' },
+    ],
+    klantIds: [],
+  },
+  {
+    id: 'hr-essentials',
+    name: 'HR Essentials',
+    members: [
+      { id: 'mem-6', email: 'admin@bcs-hr.nl', status: 'active', addedAt: '2025-06-01' },
+      { id: 'mem-7', email: 'mirella@bcs-hr.nl', status: 'active', addedAt: '2025-06-15' },
+    ],
+    klantIds: [],
+  },
+  {
+    id: 'hr-enterprise',
+    name: 'Enterprise',
+    members: [
+      { id: 'mem-8', email: 'admin@bcs-hr.nl', status: 'active', addedAt: '2025-06-01' },
+      { id: 'mem-9', email: 'esther@bcs-hr.nl', status: 'active', addedAt: '2025-09-01' },
+    ],
+    klantIds: [],
+  },
+  {
+    id: 'cloudpay',
+    name: 'CloudPay',
+    members: [
+      { id: 'mem-10', email: 'admin@bcs-hr.nl', status: 'active', addedAt: '2025-06-01' },
+      { id: 'mem-11', email: 'jan@bcs-hr.nl', status: 'invited', addedAt: '2026-04-10' },
+    ],
+    klantIds: [],
+  },
 ];
 
 // Controleurs
