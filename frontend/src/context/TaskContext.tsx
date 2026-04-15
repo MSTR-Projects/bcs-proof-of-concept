@@ -23,6 +23,8 @@ interface TaskContextType {
   addKlantToTeam: (klantId: string) => void;
   removeKlantFromTeam: (klantId: string) => void;
   getTeamsForKlant: (klantId: string) => Team[];
+  addKlantToSpecificTeam: (klantId: string, teamId: string) => void;
+  removeKlantFromSpecificTeam: (klantId: string, teamId: string) => void;
   
   // Templates
   templates: Template[];
@@ -111,6 +113,22 @@ export function TaskProvider({ children }: { children: ReactNode }) {
 
   const getTeamsForKlant = (klantId: string) => {
     return teams.filter(t => t.klantIds.includes(klantId));
+  };
+
+  const addKlantToSpecificTeam = (klantId: string, teamId: string) => {
+    setTeams(prev => prev.map(t =>
+      t.id === teamId && !t.klantIds.includes(klantId)
+        ? { ...t, klantIds: [...t.klantIds, klantId] }
+        : t
+    ));
+  };
+
+  const removeKlantFromSpecificTeam = (klantId: string, teamId: string) => {
+    setTeams(prev => prev.map(t =>
+      t.id === teamId
+        ? { ...t, klantIds: t.klantIds.filter(id => id !== klantId) }
+        : t
+    ));
   };
 
   // Templates
@@ -215,6 +233,8 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       addKlantToTeam,
       removeKlantFromTeam,
       getTeamsForKlant,
+      addKlantToSpecificTeam,
+      removeKlantFromSpecificTeam,
       currentTeam,
       templates,
       addTemplate,

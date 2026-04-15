@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Plus, FileText, ChevronRight, Layers, CheckCircle, AlertTriangle, Search } from "lucide-react";
+import { Plus, X, FileText, ChevronRight, Layers, CheckCircle, AlertTriangle, Search } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useTaskContext } from "@/context/TaskContext";
+import {
   listKlanten,
   createKlant,
   deleteKlant as deleteKlantApi,
@@ -44,6 +51,7 @@ export default function Clients() {
   const navigate = useNavigate();
   const { clientId } = useParams<{ clientId?: string }>();
   const { toast } = useToast();
+  const { teams, addKlantToSpecificTeam, removeKlantFromSpecificTeam, getTeamsForKlant } = useTaskContext();
 
   // Data state
   const [klanten, setKlanten] = useState<Klant[]>([]);
@@ -497,6 +505,57 @@ export default function Clients() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Teams section */}
+            {selectedId && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Teams</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {getTeamsForKlant(selectedId).map((team) => (
+                      <Badge
+                        key={team.id}
+                        variant="secondary"
+                        className="gap-1 pr-1"
+                      >
+                        {team.name}
+                        <button
+                          onClick={() => removeKlantFromSpecificTeam(selectedId, team.id)}
+                          className="ml-1 rounded-full p-0.5 hover:bg-muted-foreground/20"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-6 px-2 text-xs">
+                          <Plus className="h-3 w-3 mr-1" />
+                          Team
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        {teams
+                          .filter(t => !t.klantIds.includes(selectedId))
+                          .map(t => (
+                            <DropdownMenuItem
+                              key={t.id}
+                              onClick={() => addKlantToSpecificTeam(selectedId, t.id)}
+                            >
+                              {t.name}
+                            </DropdownMenuItem>
+                          ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  {getTeamsForKlant(selectedId).length === 0 && (
+                    <p className="text-sm text-muted-foreground">Niet toegewezen aan een team.</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground">
