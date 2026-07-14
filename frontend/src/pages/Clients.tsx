@@ -474,7 +474,7 @@ export default function Clients() {
                             <div
                               key={run.id}
                               className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer border"
-                              onClick={() => navigate(`/controle/${run.controleId}/run`)}
+                              onClick={() => navigate(`/controles/runs/${run.id}`)}
                             >
                               <div className="flex items-center gap-4">
                                 <span className="text-sm text-muted-foreground w-32">
@@ -488,12 +488,15 @@ export default function Clients() {
                                     <CheckCircle className="h-3 w-3" />
                                     Alles ok
                                   </Badge>
-                                ) : (
-                                  <Badge variant="outline" className="text-destructive border-destructive/30 bg-destructive/10 gap-1">
-                                    <AlertTriangle className="h-3 w-3" />
-                                    {run.failedFields} afwijking{run.failedFields !== 1 ? "en" : ""}
-                                  </Badge>
-                                )}
+                                ) : (() => {
+                                  const afwijkingen = run.failedFields + (run.rulesTotal - run.rulesPassed);
+                                  return (
+                                    <Badge variant="outline" className="text-destructive border-destructive/30 bg-destructive/10 gap-1">
+                                      <AlertTriangle className="h-3 w-3" />
+                                      {afwijkingen} afwijking{afwijkingen !== 1 ? "en" : ""}
+                                    </Badge>
+                                  );
+                                })()}
                                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
                               </div>
                             </div>

@@ -1,54 +1,47 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HeaderAction } from "@/context/HeaderActionContext";
-import { getControleRunDetails, getControleSeriesRun, getControle } from "@/api/client";
+import { getControle, getControleRun, getControleRunDetails } from "@/api/client";
 import RunResultViewer from "@/components/RunResultViewer";
 import { buildRunDetailView, type RunDetailView } from "@/lib/runDetailView";
-import type { ExtractionResponse, Controle } from "@/types";
+import type { Controle, ControleRunResult } from "@/types";
 
-export default function RunSeriesStepDetail() {
-  const { seriesId, runId, stepId } = useParams<{ seriesId: string; runId: string; stepId: string }>();
+export default function RunDetail() {
+  const { runId } = useParams<{ runId: string }>();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [stepName, setStepName] = useState("");
+  const [run, setRun] = useState<ControleRunResult | null>(null);
   const [view, setView] = useState<RunDetailView | null>(null);
 
   useEffect(() => {
-    if (!runId || !stepId) return;
+    if (!runId) return;
 
     const load = async () => {
       try {
-        const seriesRun = await getControleSeriesRun(runId);
-        const stepResult = seriesRun.stepResults.find((sr) => sr.stepId === stepId);
-        if (!stepResult?.controleRunId) {
-          setError("Stap niet gevonden of geen resultaten beschikbaar.");
-          setLoading(false);
-          return;
-        }
+        const runResult = await getControleRun(runId);
+        setRun(runResult);
 
-        setStepName(stepResult.controleName);
-
-        const details: ExtractionResponse[] = await getControleRunDetails(stepResult.controleRunId);
+        const details = await getControleRunDetails(runId);
 
         let controle: Controle | null = null;
         try {
-          controle = await getControle(stepResult.controleId);
+          controle = await getControle(runResult.controleId);
         } catch { /* continue without labels */ }
 
         setView(buildRunDetailView(details, controle));
       } catch {
-        setError("Kon resultaten niet laden.");
+        setError("Kon resultaten van deze uitvoering niet laden.");
       } finally {
         setLoading(false);
       }
     };
 
     load();
-  }, [runId, stepId]);
+  }, [runId]);
 
   if (loading) {
     return (
@@ -59,7 +52,7 @@ export default function RunSeriesStepDetail() {
     );
   }
 
-  if (error || !view) {
+  if (error || !run || !view) {
     return (
       <div className="max-w-xl mx-auto mt-16 text-center space-y-4">
         <p className="text-muted-foreground">{error ?? "Resultaten niet gevonden."}</p>
@@ -71,18 +64,35 @@ export default function RunSeriesStepDetail() {
     );
   }
 
+  const runDate = new Date(run.runAt).toLocaleString("nl-NL", {
+    day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+
   return (
     <div className="space-y-4">
       <HeaderAction>
-        <Button variant="outline" className="rounded-full" size="sm" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
-          Terug naar serie
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="rounded-full" size="sm" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
+            Terug
+          </Button>
+          <Button
+            variant="outline"
+            className="rounded-full"
+            size="sm"
+            onClick={() => navigate(`/controle/${run.controleId}/run`)}
+          >
+            <Play className="h-3.5 w-3.5 mr-1.5" />
+            Opnieuw uitvoeren
+          </Button>
+        </div>
       </HeaderAction>
 
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold text-foreground">{stepName}</h1>
-        <p className="text-muted-foreground text-sm">Stapresultaten</p>
+        <h1 className="text-2xl font-bold text-foreground">{run.controleName}</h1>
+        <p className="text-muted-foreground text-sm">
+          {run.klantName ? `${run.klantName} · ` : ""}uitgevoerd op {runDate}
+        </p>
       </div>
 
       <RunResultViewer

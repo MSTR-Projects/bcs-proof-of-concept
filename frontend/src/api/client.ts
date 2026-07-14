@@ -287,6 +287,11 @@ export async function listControleRuns(): Promise<ControleRunResult[]> {
   return response.data;
 }
 
+export async function getControleRun(runId: string): Promise<ControleRunResult> {
+  const response = await api.get(`/controles/runs/${runId}`);
+  return response.data;
+}
+
 export async function getControleRunDetails(runId: string): Promise<ExtractionResponse[]> {
   const response = await api.get(`/controles/runs/${runId}/details`);
   return response.data;

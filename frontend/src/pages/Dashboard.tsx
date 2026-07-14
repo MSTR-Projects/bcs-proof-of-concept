@@ -161,7 +161,11 @@ export default function Dashboard() {
             </TableHeader>
             <TableBody>
               {recentControls.map((run) => (
-                <TableRow key={run.id}>
+                <TableRow
+                  key={run.id}
+                  className="cursor-pointer"
+                  onClick={() => navigate(`/controles/runs/${run.id}`)}
+                >
                   <TableCell className="font-medium">{run.controleName}</TableCell>
                   <TableCell className="text-muted-foreground">{run.klantName || "—"}</TableCell>
                   <TableCell>{getStatusBadge(run.status)}</TableCell>
@@ -184,7 +188,10 @@ export default function Dashboard() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => navigate(`/controle/${run.controleId}/run`)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/controle/${run.controleId}/run`);
+                      }}
                     >
                       <Play className="h-3.5 w-3.5 mr-1" />
                       Opnieuw

@@ -14,6 +14,7 @@ import Clients from "./pages/Clients";
 import ControleWizard from "./pages/ControleWizard";
 import ControleDetail from "./pages/ControleDetail";
 import RunControle from "./pages/RunControle";
+import RunDetail from "./pages/RunDetail";
 import Settings from "./pages/Settings";
 import Results from "./pages/Results";
 import RuleLibrary from "./pages/RuleLibrary";
@@ -60,6 +61,7 @@ const App = () => (
                 <Route path="/controle/:id/run" element={<ProtectedPage><RunControle /></ProtectedPage>} />
                 <Route path="/controles" element={<ProtectedPage><MyControls /></ProtectedPage>} />
                 <Route path="/controles/resultaten" element={<ProtectedPage><MyControlResults /></ProtectedPage>} />
+                <Route path="/controles/runs/:runId" element={<ProtectedPage><RunDetail /></ProtectedPage>} />
                 <Route path="/controles/globale-waarden" element={<ProtectedPage><MyControlGlobalValues /></ProtectedPage>} />
                 <Route path="/global-values/:id/edit" element={<ProtectedPage><GlobalValuePdfEditor /></ProtectedPage>} />
                 <Route path="/controles/globale-waarden/:id/audit" element={<ProtectedPage><GlobalValueAuditTrail /></ProtectedPage>} />

@@ -68,6 +68,14 @@ async def list_all_runs():
     return sorted(runs, key=lambda r: r.runAt, reverse=True)
 
 
+@router.get("/runs/{run_id}", response_model=ControleRunResult)
+async def get_run(run_id: str):
+    content = get_storage().get_controle_run(run_id)
+    if content is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return ControleRunResult(**json.loads(content))
+
+
 @router.get("/runs/{run_id}/details", response_model=list[ExtractionResponse])
 async def get_run_details(run_id: str):
     storage = get_storage()
