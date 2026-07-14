@@ -1,14 +1,16 @@
-"""Wipe all controle-related data and seed three complete demo flows.
+"""Wipe all controle-related data and seed one deep demo flow.
 
-Each flow is a full chain: klant -> global value group -> sample files
+The flow is a full chain: klant -> global value group -> sample files
 (PDF + spreadsheet) -> controles with fields, rules and rule graph ->
 controle series -> run history (real extraction runs, so every seeded
 rule is verified to pass).
 
-Flows:
-  1. Bakkerij de Gouden Korst      - maandcontrole loonjournaal + medewerkersbestand
-  2. Installatiebedrijf Jansen & Zn. - implementatiecheck + pensioenpremie aansluiting
-  3. Transportbedrijf Van Dijk     - kwartaalcontrole cumulatieven + uit-dienst eindafrekening
+Scenario: Maandafsluiting februari 2026 for Hoveniersbedrijf De Groene
+Linde (20 medewerkers). One serie of five controles; the first checks
+all 20 loonstroken in a single run. An extra correctie-loonstrook with
+an uurloon below the CAO-minimum is written to sample_files only (not
+part of any seeded run) for the live demo catch moment; the seeder
+verifies that exactly that strook fails exactly the uurloon rule.
 
 Generated sample files are also written to <repo>/sample_files/<klant>/ so
 they can be re-uploaded manually in the Run dialogs.
@@ -210,6 +212,16 @@ def labeled_value_region(pdf_path, label, page_no=1):
     raise ValueError(f"Label '{label}' niet gevonden in {pdf_path}")
 
 
+def union_region(regions):
+    """Bounding union of same-label regions across identically laid out PDFs."""
+    x0 = min(r["x"] for r in regions)
+    y0 = min(r["y"] for r in regions)
+    x1 = max(r["x"] + r["width"] for r in regions)
+    y1 = max(r["y"] + r["height"] for r in regions)
+    return {"page": regions[0]["page"], "x": x0, "y": y0,
+            "width": x1 - x0, "height": y1 - y0}
+
+
 # ════════════════════════════════════════════════════════════════════
 # File registration (uploads + spreadsheets + sample_files copies)
 # ════════════════════════════════════════════════════════════════════
@@ -297,6 +309,10 @@ def spreadsheet_file(label, ss_id, filename, sheet_data, fields):
 # ════════════════════════════════════════════════════════════════════
 # Rule graph builder (mirrors frontend serializeGraph semantics)
 # ════════════════════════════════════════════════════════════════════
+
+_OPERATOR_LABELS = {"equals": "==", "not_equals": "!=", "greater_or_equal": ">=",
+                    "less_or_equal": "<=", "greater_than": ">", "less_than": "<"}
+
 
 class RuleBuilder:
     """Builds TemplateRule[], ComputedField[] and the React Flow ruleGraph together."""
@@ -393,7 +409,7 @@ class RuleBuilder:
         a_id, a_operand = a
         b_id, b_operand = b
         self._add_node(node_id, "comparison", {
-            "label": "==", "nodeType": "comparison",
+            "label": _OPERATOR_LABELS.get(operator, operator), "nodeType": "comparison",
             "comparisonOperator": operator, "outputLabel": name,
         }, x=620, w=90, h=53)
         self._add_edge(a_id, node_id, "a")
@@ -487,399 +503,353 @@ def make_report(filename, klant_slug, doc_title, meta_pairs, table_title, header
 
 
 # ════════════════════════════════════════════════════════════════════
-# Flow 1 — Bakkerij de Gouden Korst
+# Flow — Hoveniersbedrijf De Groene Linde (maandafsluiting februari 2026)
 # ════════════════════════════════════════════════════════════════════
 
-async def seed_flow_bakkerij():
-    naam = "Bakkerij de Gouden Korst"
-    slug = "bakkerij-de-gouden-korst"
-    aantal = 34
+async def seed_flow_groene_linde():
+    naam = "Hoveniersbedrijf De Groene Linde"
+    slug = "hoveniersbedrijf-de-groene-linde"
+    groep = "CAO Hoveniersbedrijf 2026"
+    aantal = 20
+    periode = "2026-02"
+    lh_nummer = "8456.78.901.L01"
     klant_id = seed_klant(naam, aantal)
 
-    # -- Medewerkersbestand (spreadsheet) --
-    functies = ["Bakker", "Broodbakker", "Banketbakker", "Verkoopmedewerker", "Bezorger",
-                "Teamleider winkel", "Administratief medewerker"]
+    # -- Medewerkers: integer bruto, uurloon boven CAO-minimum (14.06) --
+    functies = ["Hovenier", "Voorman buitendienst", "Grondwerker", "Boomverzorger",
+                "Machinist", "Tuinontwerper", "Administratief medewerker"]
     medewerkers = []
     for i in range(aantal):
-        salaris = rng.randrange(2300, 4400, 50)
-        medewerkers.append([20401 + i, make_naam(), rng.choice(functies),
-                            rng.choice([24, 28, 32, 36, 38, 40]), salaris])
-    totaal_bruto = sum(m[4] for m in medewerkers)
+        uren = rng.choice([24, 28, 32, 36, 40])
+        min_bruto = (int(uren * 4.33 * 14.30) // 50) * 50 + 50   # uurloon >= 14.30 > 14.06
+        bruto = rng.randrange(min_bruto, min_bruto + 1200, 50)
+        medewerkers.append({
+            "persnr": 50101 + i, "naam": make_naam(), "functie": rng.choice(functies),
+            "uren": uren, "uurloon": round(bruto / (uren * 4.33), 2), "bruto": bruto,
+            "vg_cents": bruto * 8,   # 8% van bruto, exact in centen
+        })
+    loonsom = sum(m["bruto"] for m in medewerkers)
+    lh_totaal = round(loonsom * 0.37)
+    vg_totaal_cents = sum(m["vg_cents"] for m in medewerkers)
+    vg_totaal = f"{vg_totaal_cents / 100:.2f}"
 
     # -- Global values --
-    group_id, gv = seed_global_group("CAO Bakkersbedrijf 2026", [
-        ("Loonheffingsnummer", "text", "8123.45.678.L01"),
+    group_id, gv = seed_global_group(groep, [
+        ("Loonheffingsnummer", "text", lh_nummer),
         ("Aantal medewerkers", "number", aantal),
-        ("Bruto loonsom januari", "number", totaal_bruto),
-        ("Vakantiegeld percentage", "number", 8),
-        ("Minimumuurloon CAO", "number", "14.06"),
+        ("CAO minimumuurloon", "number", "14.06"),
+        ("Vakantiegeldpercentage", "number", 8),
+        ("Bruto loonsom februari", "number", loonsom),
+        ("Totaal vakantiegeldreservering", "number", vg_totaal),
     ])
 
-    # -- Loonjournaal PDF --
-    lh = round(totaal_bruto * 0.34)
-    filename = "Loonjournaal_2026-01_Bakkerij_de_Gouden_Korst.pdf"
-    pdf_id, pages, regions = make_report(
-        filename, slug, "Loonjournaal januari 2026",
+    # -- 20 loonstroken + 1 correctie-strook --
+    def strook_meta(m):
+        return [
+            ("Werkgever", f"{naam} (5012)"),
+            ("Loonheffingsnummer", lh_nummer),
+            ("Periode", periode),
+            ("Personeelsnummer", m["persnr"]),
+            ("Medewerker", m["naam"]),
+            ("Uren per week", m["uren"]),
+            ("Uurloon (EUR)", f"{m['uurloon']:.2f}"),
+            ("Bruto maandsalaris (EUR)", m["bruto"]),
+            ("Vakantiegeldpercentage", 8),
+            ("Vakantiegeldreservering (EUR)", f"{m['vg_cents'] / 100:.2f}"),
+        ]
+
+    def strook_rows(m):
+        heffing = round(m["bruto"] * 0.37)
+        pensioen = round(m["bruto"] * 0.045)
+        return [
+            ["100", "Bruto maandsalaris", f"{m['uren']} uur/week", f"{m['bruto']}"],
+            ["310", "Vakantiegeldreservering 8%", "Bruto loon", f"{m['vg_cents'] / 100:.2f}"],
+            ["410", "Pensioenpremie werknemer", "Grondslag", f"-{pensioen}"],
+            ["500", "Loonheffing", "Tabel wit", f"-{heffing}"],
+            ["900", "Netto uit te betalen", "", f"{m['bruto'] - heffing - pensioen}"],
+        ]
+
+    STROOK_LABELS = ["Periode", "Loonheffingsnummer", "Uurloon (EUR)",
+                     "Bruto maandsalaris (EUR)", "Vakantiegeldpercentage"]
+    STROOK_HEADERS = ["Code", "Omschrijving", "Grondslag", "Bedrag (EUR)"]
+    STROOK_NOTE = "Verloond volgens CAO Hoveniersbedrijf, loontijdvak maand."
+
+    region_sets: dict[str, list[dict]] = {lbl: [] for lbl in STROOK_LABELS}
+    strook_ids: list[tuple[str, str]] = []
+    for m in medewerkers:
+        filename = f"Loonstrook_2026-02_{m['persnr']}.pdf"
+        tmp = scratch_pdf_path(filename)
+        build_pdf(tmp, "Loonstrook februari 2026", strook_meta(m),
+                  "Loonstrookregels", STROOK_HEADERS, strook_rows(m), STROOK_NOTE)
+        for lbl in STROOK_LABELS:
+            region_sets[lbl].append(labeled_value_region(tmp, lbl))
+        pdf_id, _pages = register_pdf(tmp, filename, slug)
+        strook_ids.append((pdf_id, filename))
+        os.remove(tmp)
+
+    # Correctie-strook: uurloon onder CAO-minimum; alleen in sample_files, niet in storage
+    fout = dict(medewerkers[13])
+    fout["uurloon"] = 12.80
+    fout["bruto"] = int(12.80 * fout["uren"] * 4.33) // 10 * 10
+    fout["vg_cents"] = fout["bruto"] * 8
+    correctie_filename = f"Loonstrook_2026-02_{fout['persnr']}_correctie.pdf"
+    correctie_path = os.path.join(SAMPLE_DIR, slug, correctie_filename)
+    build_pdf(correctie_path, "Loonstrook februari 2026 (correctie)", strook_meta(fout),
+              "Loonstrookregels", STROOK_HEADERS, strook_rows(fout), STROOK_NOTE)
+    for lbl in STROOK_LABELS:
+        region_sets[lbl].append(labeled_value_region(correctie_path, lbl))
+
+    regions = {lbl: union_region(rs) for lbl, rs in region_sets.items()}
+
+    # -- Controle 1: Loonstrokencontrole (1 slot, 20 stroken per run) --
+    c1_id = str(uuid.uuid4())
+    f_periode = pdf_field("Periode", regions["Periode"])
+    f_lh = pdf_field("Loonheffingsnummer", regions["Loonheffingsnummer"])
+    f_uurloon = pdf_field("Uurloon", regions["Uurloon (EUR)"])
+    f_bruto = pdf_field("Bruto maandsalaris", regions["Bruto maandsalaris (EUR)"])
+    f_vgpct = pdf_field("Vakantiegeldpercentage", regions["Vakantiegeldpercentage"])
+    file_strook = pdf_file("Loonstrook", strook_ids[0][0], strook_ids[0][1], 1,
+                           [f_periode, f_lh, f_uurloon, f_bruto, f_vgpct])
+
+    rb = RuleBuilder(c1_id)
+    n_periode = rb.field_input(f_periode, file_strook)
+    n_lh = rb.field_input(f_lh, file_strook)
+    n_uurloon = rb.field_input(f_uurloon, file_strook)
+    rb.field_input(f_bruto, file_strook)
+    n_vgpct = rb.field_input(f_vgpct, file_strook)
+    g_lh = rb.global_value(group_id, groep, gv["Loonheffingsnummer"])
+    g_min = rb.global_value(group_id, groep, gv["CAO minimumuurloon"])
+    g_vgpct = rb.global_value(group_id, groep, gv["Vakantiegeldpercentage"])
+    l_periode = rb.literal(periode)
+    rb.comparison("Uurloon voldoet aan CAO-minimum", n_uurloon, g_min, "greater_or_equal")
+    rb.comparison("Vakantiegeldpercentage conform CAO", n_vgpct, g_vgpct)
+    rb.comparison("Juiste periode verloond", n_periode, l_periode)
+    rb.comparison("LH-nummer komt overeen met CAO-dossier", n_lh, g_lh)
+    seed_controle(c1_id, "Loonstrokencontrole", klant_id, naam,
+                  "Sanne de Ruiter", [file_strook], rb.result())
+
+    # -- Controle 2: Loonjournaal maandcontrole --
+    j_filename = "Loonjournaal_2026-02_De_Groene_Linde.pdf"
+    j_pdf_id, j_pages, j_regions = make_report(
+        j_filename, slug, "Loonjournaal februari 2026",
         meta_pairs=[
-            ("Werkgever", f"{naam} (4021)"),
-            ("Periode", "2026-01"),
-            ("Loonheffingsnummer", "8123.45.678.L01"),
+            ("Werkgever", f"{naam} (5012)"),
+            ("Periode", periode),
+            ("Loonheffingsnummer", lh_nummer),
             ("Aantal medewerkers", aantal),
-            ("Totaal bruto (EUR)", totaal_bruto),
+            ("Totaal bruto (EUR)", loonsom),
         ],
         table_title="Journaalposten",
         headers=["Grootboek", "Omschrijving", "Debet (EUR)", "Credit (EUR)"],
         rows=[
-            ["4001", "Bruto lonen", f"{totaal_bruto}", ""],
-            ["4002", f"Vakantiegeldreservering 8%", f"{round(totaal_bruto * 0.08)}", ""],
-            ["4011", "Pensioenpremie werkgever", f"{round(totaal_bruto * 0.079)}", ""],
-            ["1601", "Af te dragen loonheffing", "", f"{lh}"],
-            ["1602", "Netto lonen te betalen", "", f"{totaal_bruto - lh}"],
+            ["4001", "Bruto lonen", f"{loonsom}", ""],
+            ["4002", "Vakantiegeldreservering 8%", vg_totaal, ""],
+            ["4011", "Pensioenpremie werkgever", f"{round(loonsom * 0.068)}", ""],
+            ["1601", "Af te dragen loonheffing", "", f"{lh_totaal}"],
+            ["1602", "Netto lonen te betalen", "", f"{loonsom - lh_totaal}"],
         ],
-        note="Verloond volgens CAO Bakkersbedrijf, loontijdvak maand.",
+        note="Verloond volgens CAO Hoveniersbedrijf, loontijdvak maand.",
     )
-
-    # -- Controle A: Loonjournaal maandcontrole (PDF eerst, regels op PDF-velden) --
-    controle_a_id = str(uuid.uuid4())
-    f_periode = pdf_field("Periode", regions["Periode"])
-    f_lh_nr = pdf_field("Loonheffingsnummer", regions["Loonheffingsnummer"])
-    f_aantal = pdf_field("Aantal medewerkers", regions["Aantal medewerkers"])
-    f_bruto = pdf_field("Totaal bruto", regions["Totaal bruto (EUR)"])
-    file_journaal = pdf_file("Loonjournaal", pdf_id, filename, pages,
-                             [f_periode, f_lh_nr, f_aantal, f_bruto])
-
-    rb = RuleBuilder(controle_a_id)
-    n_periode = rb.field_input(f_periode, file_journaal)
-    n_lh = rb.field_input(f_lh_nr, file_journaal)
-    n_aantal = rb.field_input(f_aantal, file_journaal)
-    n_bruto = rb.field_input(f_bruto, file_journaal)
-    g_lh = rb.global_value(group_id, "CAO Bakkersbedrijf 2026", gv["Loonheffingsnummer"])
-    g_aantal = rb.global_value(group_id, "CAO Bakkersbedrijf 2026", gv["Aantal medewerkers"])
-    g_loonsom = rb.global_value(group_id, "CAO Bakkersbedrijf 2026", gv["Bruto loonsom januari"])
-    rb.comparison("LH-nummer komt overeen met CAO-dossier", n_lh, g_lh)
+    c2_id = str(uuid.uuid4())
+    f_j_periode = pdf_field("Periode", j_regions["Periode"])
+    f_j_lh = pdf_field("Loonheffingsnummer", j_regions["Loonheffingsnummer"])
+    f_j_aantal = pdf_field("Aantal medewerkers", j_regions["Aantal medewerkers"])
+    f_j_bruto = pdf_field("Totaal bruto", j_regions["Totaal bruto (EUR)"])
+    file_journaal = pdf_file("Loonjournaal", j_pdf_id, j_filename, j_pages,
+                             [f_j_periode, f_j_lh, f_j_aantal, f_j_bruto])
+    rb = RuleBuilder(c2_id)
+    n_periode = rb.field_input(f_j_periode, file_journaal)
+    n_lh = rb.field_input(f_j_lh, file_journaal)
+    n_aantal = rb.field_input(f_j_aantal, file_journaal)
+    n_bruto = rb.field_input(f_j_bruto, file_journaal)
+    g_lh = rb.global_value(group_id, groep, gv["Loonheffingsnummer"])
+    g_aantal = rb.global_value(group_id, groep, gv["Aantal medewerkers"])
+    g_loonsom = rb.global_value(group_id, groep, gv["Bruto loonsom februari"])
+    l_periode = rb.literal(periode)
+    rb.comparison("Loonsom sluit aan op loonstroken", n_bruto, g_loonsom)
     rb.comparison("Headcount klopt met contract", n_aantal, g_aantal)
-    rb.comparison("Bruto loonsom binnen begroting", n_bruto, g_loonsom, "less_or_equal")
-    rb.validation("Periode is ingevuld", n_periode, "not_empty")
+    rb.comparison("LH-nummer komt overeen met CAO-dossier", n_lh, g_lh)
+    rb.comparison("Juiste periode geboekt", n_periode, l_periode)
+    seed_controle(c2_id, "Loonjournaal maandcontrole", klant_id, naam,
+                  "Sanne de Ruiter", [file_journaal], rb.result())
 
-    seed_controle(controle_a_id, "Loonjournaal maandcontrole", klant_id, naam,
-                  "Nikki van der Heijden", [file_journaal], rb.result())
-
-    # -- Controle B: Medewerkersbestand aansluiting (spreadsheet eerst) --
-    ss_filename = "Medewerkers_2026-01_Bakkerij_de_Gouden_Korst.xlsx"
+    # -- Controle 3: Medewerkersbestand aansluiting (spreadsheet) --
+    ss_filename = "Medewerkers_2026-02_De_Groene_Linde.xlsx"
     ss_id, sheet_data = register_spreadsheet(
-        ["Persnr", "Naam", "Functie", "Uren per week", "Bruto maandsalaris"],
-        medewerkers, ss_filename, slug)
-
-    controle_b_id = str(uuid.uuid4())
-    f_eerste_pers = cell_field("Eerste personeelsnummer", 0, 0)
+        ["Persnr", "Naam", "Functie", "Uren per week", "Uurloon", "Bruto maandsalaris"],
+        [[m["persnr"], m["naam"], m["functie"], m["uren"], m["uurloon"], m["bruto"]]
+         for m in medewerkers],
+        ss_filename, slug)
+    c3_id = str(uuid.uuid4())
+    f_eerste = cell_field("Eerste personeelsnummer", 0, 0)
     file_medewerkers = spreadsheet_file("Medewerkersbestand", ss_id, ss_filename,
-                                        sheet_data, [f_eerste_pers])
-
-    rb = RuleBuilder(controle_b_id)
-    c_bruto = rb.ss_column(file_medewerkers, 4)
+                                        sheet_data, [f_eerste])
+    rb = RuleBuilder(c3_id)
+    c_bruto = rb.ss_column(file_medewerkers, 5)
     c_persnr = rb.ss_column(file_medewerkers, 0)
-    n_eerste = rb.field_input(f_eerste_pers, file_medewerkers)
-    g_loonsom = rb.global_value(group_id, "CAO Bakkersbedrijf 2026", gv["Bruto loonsom januari"])
-    g_aantal = rb.global_value(group_id, "CAO Bakkersbedrijf 2026", gv["Aantal medewerkers"])
-    agg_som = rb.aggregate(c_bruto, "sum", "Som bruto medewerkerslijst")
+    n_eerste = rb.field_input(f_eerste, file_medewerkers)
+    g_loonsom = rb.global_value(group_id, groep, gv["Bruto loonsom februari"])
+    g_aantal = rb.global_value(group_id, groep, gv["Aantal medewerkers"])
+    agg_som = rb.aggregate(c_bruto, "sum", "Som bruto medewerkersbestand")
     agg_count = rb.aggregate(c_persnr, "count", "Aantal medewerkers in bestand")
-    rb.comparison("Loonsom sluit aan op begroting", agg_som, g_loonsom)
+    rb.comparison("Loonsom sluit aan op journaal", agg_som, g_loonsom)
     rb.comparison("Headcount komt overeen met CAO-dossier", agg_count, g_aantal)
     rb.validation("Medewerkersbestand is gevuld", n_eerste, "not_empty")
+    seed_controle(c3_id, "Medewerkersbestand aansluiting", klant_id, naam,
+                  "Sanne de Ruiter", [file_medewerkers], rb.result())
 
-    seed_controle(controle_b_id, "Medewerkersbestand aansluiting", klant_id, naam,
-                  "Nikki van der Heijden", [file_medewerkers], rb.result())
-
-    # -- Serie + runs --
-    series_id = seed_series("Maandafsluiting januari 2026", klant_id, naam, [
-        (controle_a_id, "Loonjournaal maandcontrole", "always"),
-        (controle_b_id, "Medewerkersbestand aansluiting", "if_passed"),
-    ])
-
-    await run_controle(controle_a_id, RunControleRequest(
-        files={file_journaal["id"]: [pdf_id]}, filenames={pdf_id: filename}))
-    await run_controle(controle_b_id, RunControleRequest(files={}))
-
-    from services.controle_series_store import get_controle_series
-    series = get_controle_series(series_id)
-    step_a, step_b = sorted(series.steps, key=lambda s: s.order)
-    await run_series(series_id, RunSeriesRequest(
-        files={step_a.id: {file_journaal["id"]: [pdf_id]}, step_b.id: {}},
-        filenames={pdf_id: filename}))
-
-    print(f"✓ Flow 1: {naam} - 2 controles, 1 serie, 3 runs")
-
-
-# ════════════════════════════════════════════════════════════════════
-# Flow 2 — Installatiebedrijf Jansen & Zn.
-# ════════════════════════════════════════════════════════════════════
-
-async def seed_flow_jansen():
-    naam = "Installatiebedrijf Jansen & Zn."
-    slug = "installatiebedrijf-jansen-en-zn"
-    aantal = 87
-    klant_id = seed_klant(naam, aantal)
-
-    # -- Pensioengrondslagen (spreadsheet) --
-    franchise = 17545
-    pensioen_rows = []
-    for i in range(aantal):
-        jaarloon = rng.randrange(33000, 62000, 100)
-        grondslag = max(0, jaarloon - franchise)
-        pensioen_rows.append([30001 + i, make_naam(), grondslag,
-                              round(grondslag * 0.079), round(grondslag * 0.045)])
-    totaal_premie_wg = sum(r[3] for r in pensioen_rows)
-
-    # -- Global values --
-    group_id, gv = seed_global_group("CAO Metaal & Techniek 2026", [
-        ("Loonheffingsnummer", "text", "8234.56.789.L01"),
-        ("Pensioenfranchise", "number", f"{franchise}.00"),
-        ("Werkgeversbijdrage pensioen", "number", "7.9"),
-        ("Pensioenpremie werkgever 2026", "number", totaal_premie_wg),
-        ("Aantal medewerkers", "number", aantal),
-    ])
-
-    # -- Systeeminrichting PDF --
-    filename = "Systeeminrichting_Polaris_Jansen_en_Zn.pdf"
-    pdf_id, pages, regions = make_report(
-        filename, slug, "Systeeminrichting nieuwe klant",
+    # -- Controle 4: Loonaangifte controle --
+    a_filename = "Loonaangifte_2026-02_De_Groene_Linde.pdf"
+    a_pdf_id, a_pages, a_regions = make_report(
+        a_filename, slug, "Loonaangifte februari 2026",
         meta_pairs=[
-            ("Bedrijfsnaam", naam),
-            ("Loonheffingsnummer", "8234.56.789.L01"),
-            ("CAO", "Metaal en Techniek"),
-            ("Loontijdvak", "Maand"),
-            ("Pensioenfonds", "PME"),
-            ("Franchise (EUR)", f"{franchise}.00"),
-            ("Werkgeversbijdrage (%)", "7.9"),
+            ("Werkgever", f"{naam} (5012)"),
+            ("Periode", periode),
+            ("Loonheffingsnummer", lh_nummer),
+            ("Aantal inkomstenverhoudingen", aantal),
+            ("Totaal loon loonheffing (EUR)", loonsom),
         ],
-        table_title="Ingerichte looncomponenten",
-        headers=["Code", "Component", "Grondslag", "Status"],
+        table_title="Collectieve aangifte",
+        headers=["Rubriek", "Bedrag (EUR)"],
         rows=[
-            ["100", "Bruto maandsalaris", "Contract", "Actief"],
-            ["210", "Overwerktoeslag 125%", "Uurloon", "Actief"],
-            ["220", "Overwerktoeslag 150%", "Uurloon", "Actief"],
-            ["310", "Vakantiegeld 8%", "Bruto loon", "Actief"],
-            ["410", "Pensioenpremie PME", "Grondslag - franchise", "Actief"],
-            ["420", "WIA-bodemverzekering", "SV-loon", "Actief"],
-            ["510", "Reiskostenvergoeding", "Woon-werk km", "Actief"],
+            ["Totaal loon LB/PH", f"{loonsom}"],
+            ["Ingehouden loonbelasting/premie volksverzekeringen", f"{lh_totaal}"],
+            ["Premie WW Awf laag", f"{round(loonsom * 0.0264)}"],
+            ["Werkgeversheffing Zvw", f"{round(loonsom * 0.0695)}"],
+            ["Gedifferentieerde premie Whk", f"{round(loonsom * 0.0077)}"],
         ],
-        note="Inrichting conform implementatieplan versie 2.1, akkoord projectleider.",
+        note="Aangifte loonheffingen periode februari 2026, uiterste aangiftedatum 31-03-2026.",
     )
-
-    # -- Controle A: Implementatiecheck --
-    controle_a_id = str(uuid.uuid4())
-    f_bedrijf = pdf_field("Bedrijfsnaam", regions["Bedrijfsnaam"])
-    f_lh = pdf_field("Loonheffingsnummer", regions["Loonheffingsnummer"])
-    f_cao = pdf_field("CAO", regions["CAO"])
-    f_tijdvak = pdf_field("Loontijdvak", regions["Loontijdvak"])
-    f_fonds = pdf_field("Pensioenfonds", regions["Pensioenfonds"])
-    f_franchise = pdf_field("Franchise", regions["Franchise (EUR)"])
-    file_inrichting = pdf_file("Systeeminrichting", pdf_id, filename, pages,
-                               [f_bedrijf, f_lh, f_cao, f_tijdvak, f_fonds, f_franchise])
-
-    rb = RuleBuilder(controle_a_id)
-    rb.field_input(f_bedrijf, file_inrichting)
-    n_lh = rb.field_input(f_lh, file_inrichting)
-    n_cao = rb.field_input(f_cao, file_inrichting)
-    n_tijdvak = rb.field_input(f_tijdvak, file_inrichting)
-    n_fonds = rb.field_input(f_fonds, file_inrichting)
-    n_franchise = rb.field_input(f_franchise, file_inrichting)
-    g_lh = rb.global_value(group_id, "CAO Metaal & Techniek 2026", gv["Loonheffingsnummer"])
-    g_franchise = rb.global_value(group_id, "CAO Metaal & Techniek 2026", gv["Pensioenfranchise"])
-    l_maand = rb.literal("Maand")
+    c4_id = str(uuid.uuid4())
+    f_a_periode = pdf_field("Periode", a_regions["Periode"])
+    f_a_lh = pdf_field("Loonheffingsnummer", a_regions["Loonheffingsnummer"])
+    f_a_ihv = pdf_field("Aantal inkomstenverhoudingen", a_regions["Aantal inkomstenverhoudingen"])
+    f_a_loon = pdf_field("Totaal loon loonheffing", a_regions["Totaal loon loonheffing (EUR)"])
+    file_aangifte = pdf_file("Loonaangifte", a_pdf_id, a_filename, a_pages,
+                             [f_a_periode, f_a_lh, f_a_ihv, f_a_loon])
+    rb = RuleBuilder(c4_id)
+    n_periode = rb.field_input(f_a_periode, file_aangifte)
+    n_lh = rb.field_input(f_a_lh, file_aangifte)
+    n_ihv = rb.field_input(f_a_ihv, file_aangifte)
+    n_loon = rb.field_input(f_a_loon, file_aangifte)
+    g_lh = rb.global_value(group_id, groep, gv["Loonheffingsnummer"])
+    g_aantal = rb.global_value(group_id, groep, gv["Aantal medewerkers"])
+    g_loonsom = rb.global_value(group_id, groep, gv["Bruto loonsom februari"])
+    rb.comparison("Aangifteloon sluit aan op journaal", n_loon, g_loonsom)
+    rb.comparison("Alle inkomstenverhoudingen aangegeven", n_ihv, g_aantal)
     rb.comparison("LH-nummer komt overeen met CAO-dossier", n_lh, g_lh)
-    rb.comparison("Franchise conform CAO", n_franchise, g_franchise)
-    rb.comparison("Loontijdvak is maand", n_tijdvak, l_maand)
-    rb.validation("CAO is vastgelegd", n_cao, "not_empty")
-    rb.validation("Pensioenfonds is gekoppeld", n_fonds, "not_empty")
-
-    seed_controle(controle_a_id, "Implementatiecheck systeeminrichting", klant_id, naam,
-                  "Wouter Bakker", [file_inrichting], rb.result())
-
-    # -- Controle B: Pensioenpremie aansluiting --
-    ss_filename = "Pensioengrondslagen_2026_Jansen_en_Zn.xlsx"
-    ss_id, sheet_data = register_spreadsheet(
-        ["Persnr", "Naam", "Pensioengrondslag", "Premie werkgever", "Premie werknemer"],
-        pensioen_rows, ss_filename, slug)
-
-    controle_b_id = str(uuid.uuid4())
-    f_eerste = cell_field("Eerste personeelsnummer", 0, 0)
-    file_pensioen = spreadsheet_file("Pensioengrondslagen", ss_id, ss_filename,
-                                     sheet_data, [f_eerste])
-
-    rb = RuleBuilder(controle_b_id)
-    c_premie = rb.ss_column(file_pensioen, 3)
-    c_persnr = rb.ss_column(file_pensioen, 0)
-    n_eerste = rb.field_input(f_eerste, file_pensioen)
-    g_premie = rb.global_value(group_id, "CAO Metaal & Techniek 2026", gv["Pensioenpremie werkgever 2026"])
-    g_aantal = rb.global_value(group_id, "CAO Metaal & Techniek 2026", gv["Aantal medewerkers"])
-    agg_premie = rb.aggregate(c_premie, "sum", "Som premie werkgever")
-    agg_count = rb.aggregate(c_persnr, "count", "Aantal deelnemers")
-    rb.comparison("Premie werkgever sluit aan op budget", agg_premie, g_premie)
-    rb.comparison("Alle medewerkers nemen deel", agg_count, g_aantal)
-    rb.validation("Grondslagenbestand is gevuld", n_eerste, "not_empty")
-
-    seed_controle(controle_b_id, "Pensioenpremie aansluiting", klant_id, naam,
-                  "Wouter Bakker", [file_pensioen], rb.result())
-
-    # -- Serie + runs --
-    series_id = seed_series("Onboarding Jansen & Zn.", klant_id, naam, [
-        (controle_a_id, "Implementatiecheck systeeminrichting", "always"),
-        (controle_b_id, "Pensioenpremie aansluiting", "if_passed"),
-    ])
-
-    await run_controle(controle_a_id, RunControleRequest(
-        files={file_inrichting["id"]: [pdf_id]}, filenames={pdf_id: filename}))
-    await run_controle(controle_b_id, RunControleRequest(files={}))
-
-    from services.controle_series_store import get_controle_series
-    series = get_controle_series(series_id)
-    step_a, step_b = sorted(series.steps, key=lambda s: s.order)
-    await run_series(series_id, RunSeriesRequest(
-        files={step_a.id: {file_inrichting["id"]: [pdf_id]}, step_b.id: {}},
-        filenames={pdf_id: filename}))
-
-    print(f"✓ Flow 2: {naam} - 2 controles, 1 serie, 3 runs")
-
-
-# ════════════════════════════════════════════════════════════════════
-# Flow 3 — Transportbedrijf Van Dijk
-# ════════════════════════════════════════════════════════════════════
-
-async def seed_flow_van_dijk():
-    naam = "Transportbedrijf Van Dijk"
-    slug = "transportbedrijf-van-dijk"
-    aantal = 156
-    klant_id = seed_klant(naam, aantal)
-
-    # -- Cumulatieven Q4 (spreadsheet) --
-    cum_rows = []
-    for i in range(aantal):
-        maandloon = rng.randrange(2800, 5200, 25)
-        bruto_cum = maandloon * 3
-        cum_rows.append([40001 + i, make_naam(), bruto_cum,
-                         round(bruto_cum * 0.34), rng.choice([63, 64, 65])])
-    totaal_cum = sum(r[2] for r in cum_rows)
-
-    # -- Global values --
-    group_id, gv = seed_global_group("CAO Beroepsgoederenvervoer 2026", [
-        ("Loonheffingsnummer", "text", "8345.67.890.L02"),
-        ("Aantal medewerkers", "number", aantal),
-        ("Bruto loonsom Q4 2025", "number", totaal_cum),
-        ("Reiskostenvergoeding per km", "number", "0.23"),
-        ("Max overuren per maand", "number", 20),
-    ])
-
-    # -- Kwartaaloverzicht PDF (tweede bestand in controle A) --
-    kw_filename = "Kwartaaloverzicht_Q4-2025_Transportbedrijf_Van_Dijk.pdf"
-    kw_pdf_id, kw_pages, kw_regions = make_report(
-        kw_filename, slug, "Kwartaaloverzicht Q4 2025",
-        meta_pairs=[
-            ("Werkgever", f"{naam} (4058)"),
-            ("Periode", "2025-Q4"),
-            ("Aantal medewerkers", aantal),
-            ("Totaal bruto (EUR)", totaal_cum),
-        ],
-        table_title="Loonsom per maand",
-        headers=["Maand", "Medewerkers", "Bruto (EUR)", "Loonheffing (EUR)"],
-        rows=[
-            ["2025-10", str(aantal), f"{totaal_cum // 3}", f"{round(totaal_cum * 0.34) // 3}"],
-            ["2025-11", str(aantal), f"{totaal_cum // 3}", f"{round(totaal_cum * 0.34) // 3}"],
-            ["2025-12", str(aantal), f"{totaal_cum - 2 * (totaal_cum // 3)}", f"{round(totaal_cum * 0.34) - 2 * (round(totaal_cum * 0.34) // 3)}"],
-        ],
-        note="Inclusief chauffeurstoeslagen en overuren conform CAO Beroepsgoederenvervoer.",
-    )
-
-    # -- Controle A: Kwartaalcontrole cumulatieven (spreadsheet eerst) --
-    ss_filename = "Cumulatieven_Q4-2025_Transportbedrijf_Van_Dijk.xlsx"
-    ss_id, sheet_data = register_spreadsheet(
-        ["Persnr", "Naam", "Bruto cumulatief", "Loonheffing cumulatief", "SV-dagen"],
-        cum_rows, ss_filename, slug)
-
-    controle_a_id = str(uuid.uuid4())
-    f_eerste = cell_field("Eerste personeelsnummer", 0, 0)
-    file_cum = spreadsheet_file("Cumulatieven", ss_id, ss_filename, sheet_data, [f_eerste])
-
-    f_kw_periode = pdf_field("Periode", kw_regions["Periode"])
-    f_kw_aantal = pdf_field("Aantal medewerkers", kw_regions["Aantal medewerkers"])
-    f_kw_bruto = pdf_field("Totaal bruto", kw_regions["Totaal bruto (EUR)"])
-    file_kwartaal = pdf_file("Kwartaaloverzicht", kw_pdf_id, kw_filename, kw_pages,
-                             [f_kw_periode, f_kw_aantal, f_kw_bruto])
-
-    rb = RuleBuilder(controle_a_id)
-    c_bruto = rb.ss_column(file_cum, 2)
-    c_persnr = rb.ss_column(file_cum, 0)
-    n_eerste = rb.field_input(f_eerste, file_cum)
-    g_loonsom = rb.global_value(group_id, "CAO Beroepsgoederenvervoer 2026", gv["Bruto loonsom Q4 2025"])
-    g_aantal = rb.global_value(group_id, "CAO Beroepsgoederenvervoer 2026", gv["Aantal medewerkers"])
-    agg_som = rb.aggregate(c_bruto, "sum", "Som bruto cumulatieven")
-    agg_count = rb.aggregate(c_persnr, "count", "Aantal medewerkers in cumulatieven")
-    rb.comparison("Cumulatieven sluiten aan op kwartaaloverzicht", agg_som, g_loonsom)
-    rb.comparison("Headcount klopt met contract", agg_count, g_aantal)
-    rb.validation("Cumulatievenbestand is gevuld", n_eerste, "not_empty")
-
-    seed_controle(controle_a_id, "Kwartaalcontrole cumulatieven Q4", klant_id, naam,
-                  "Esther Pot", [file_cum, file_kwartaal], rb.result())
-
-    # -- Uit-dienst PDF --
-    ud_filename = "Uitdienstoverzicht_2025-12_Transportbedrijf_Van_Dijk.pdf"
-    uitdienst = [[str(40008 + i * 37), make_naam(), "31-12-2025",
-                  rng.choice(["Vakantiegeld", "Vakantiedagen", "Tijd-voor-tijd"]), "0.00"]
-                 for i in range(3)]
-    ud_pdf_id, ud_pages, ud_regions = make_report(
-        ud_filename, slug, "Uit-dienst eindafrekening december 2025",
-        meta_pairs=[
-            ("Werkgever", f"{naam} (4058)"),
-            ("Periode", "2025-12"),
-            ("Aantal uit dienst", "3"),
-            ("Openstaand saldo (EUR)", "0.00"),
-        ],
-        table_title="Eindafrekeningen",
-        headers=["Persnr", "Naam", "Uit dienst", "Reservering", "Restsaldo (EUR)"],
-        rows=uitdienst,
-        note="Alle reserveringen zijn uitbetaald in de laatste verloning.",
-    )
-
-    # -- Controle B: Uit-dienst eindafrekening --
-    controle_b_id = str(uuid.uuid4())
-    f_ud_periode = pdf_field("Periode", ud_regions["Periode"])
-    f_ud_aantal = pdf_field("Aantal uit dienst", ud_regions["Aantal uit dienst"])
-    f_ud_saldo = pdf_field("Openstaand saldo", ud_regions["Openstaand saldo (EUR)"])
-    file_uitdienst = pdf_file("Uitdienstoverzicht", ud_pdf_id, ud_filename, ud_pages,
-                              [f_ud_periode, f_ud_aantal, f_ud_saldo])
-
-    rb = RuleBuilder(controle_b_id)
-    n_periode = rb.field_input(f_ud_periode, file_uitdienst)
-    n_aantal = rb.field_input(f_ud_aantal, file_uitdienst)
-    n_saldo = rb.field_input(f_ud_saldo, file_uitdienst)
-    l_nul = rb.literal("0.00", "number")
-    rb.comparison("Geen openstaande saldi na uitdiensttreding", n_saldo, l_nul)
-    rb.validation("Uitstroom is geregistreerd", n_aantal, "not_empty")
     rb.validation("Periode is ingevuld", n_periode, "not_empty")
+    seed_controle(c4_id, "Loonaangifte controle", klant_id, naam,
+                  "Sanne de Ruiter", [file_aangifte], rb.result())
 
-    seed_controle(controle_b_id, "Uit-dienst eindafrekening", klant_id, naam,
-                  "Esther Pot", [file_uitdienst], rb.result())
+    # -- Controle 5: Reserveringencontrole --
+    r_filename = "Reserveringen_2026-02_De_Groene_Linde.pdf"
+    r_pdf_id, r_pages, r_regions = make_report(
+        r_filename, slug, "Reserveringenoverzicht februari 2026",
+        meta_pairs=[
+            ("Werkgever", f"{naam} (5012)"),
+            ("Periode", periode),
+            ("Totaal vakantiegeld (EUR)", vg_totaal),
+            ("Negatieve saldi", "0"),
+        ],
+        table_title="Vakantiegeldreservering per medewerker",
+        headers=["Persnr", "Naam", "Opbouw februari (EUR)", "Saldo (EUR)"],
+        rows=[[str(m["persnr"]), m["naam"], f"{m['vg_cents'] / 100:.2f}",
+               f"{m['vg_cents'] * 9 / 100:.2f}"] for m in medewerkers],
+        note="Opbouwperiode juni 2025 t/m mei 2026; saldo na 9 maanden opbouw.",
+    )
+    c5_id = str(uuid.uuid4())
+    f_r_periode = pdf_field("Periode", r_regions["Periode"])
+    f_r_totaal = pdf_field("Totaal vakantiegeld", r_regions["Totaal vakantiegeld (EUR)"])
+    f_r_negatief = pdf_field("Negatieve saldi", r_regions["Negatieve saldi"])
+    file_reserveringen = pdf_file("Reserveringenoverzicht", r_pdf_id, r_filename, r_pages,
+                                  [f_r_periode, f_r_totaal, f_r_negatief])
+    rb = RuleBuilder(c5_id)
+    n_periode = rb.field_input(f_r_periode, file_reserveringen)
+    n_totaal = rb.field_input(f_r_totaal, file_reserveringen)
+    n_negatief = rb.field_input(f_r_negatief, file_reserveringen)
+    g_vg = rb.global_value(group_id, groep, gv["Totaal vakantiegeldreservering"])
+    l_nul = rb.literal("0", "number")
+    rb.comparison("Vakantiegeldreservering sluit aan", n_totaal, g_vg)
+    rb.comparison("Geen negatieve reserveringssaldi", n_negatief, l_nul)
+    rb.validation("Periode is ingevuld", n_periode, "not_empty")
+    seed_controle(c5_id, "Reserveringencontrole", klant_id, naam,
+                  "Sanne de Ruiter", [file_reserveringen], rb.result())
 
     # -- Serie + runs --
-    series_id = seed_series("Kwartaalafsluiting Q4 2025", klant_id, naam, [
-        (controle_a_id, "Kwartaalcontrole cumulatieven Q4", "always"),
-        (controle_b_id, "Uit-dienst eindafrekening", "if_passed"),
+    series_id = seed_series("Maandafsluiting februari 2026", klant_id, naam, [
+        (c1_id, "Loonstrokencontrole", "always"),
+        (c2_id, "Loonjournaal maandcontrole", "if_passed"),
+        (c3_id, "Medewerkersbestand aansluiting", "if_passed"),
+        (c4_id, "Loonaangifte controle", "if_passed"),
+        (c5_id, "Reserveringencontrole", "if_passed"),
     ])
 
-    await run_controle(controle_a_id, RunControleRequest(
-        files={file_kwartaal["id"]: [kw_pdf_id]}, filenames={kw_pdf_id: kw_filename}))
-    await run_controle(controle_b_id, RunControleRequest(
-        files={file_uitdienst["id"]: [ud_pdf_id]}, filenames={ud_pdf_id: ud_filename}))
+    strook_files = {file_strook["id"]: [pid for pid, _ in strook_ids]}
+    strook_names = dict(strook_ids)
+    await run_controle(c1_id, RunControleRequest(files=strook_files, filenames=strook_names))
+    await run_controle(c2_id, RunControleRequest(
+        files={file_journaal["id"]: [j_pdf_id]}, filenames={j_pdf_id: j_filename}))
+    await run_controle(c3_id, RunControleRequest(files={}))
+    await run_controle(c4_id, RunControleRequest(
+        files={file_aangifte["id"]: [a_pdf_id]}, filenames={a_pdf_id: a_filename}))
+    await run_controle(c5_id, RunControleRequest(
+        files={file_reserveringen["id"]: [r_pdf_id]}, filenames={r_pdf_id: r_filename}))
 
     from services.controle_series_store import get_controle_series
     series = get_controle_series(series_id)
-    step_a, step_b = sorted(series.steps, key=lambda s: s.order)
+    s1, s2, s3, s4, s5 = sorted(series.steps, key=lambda s: s.order)
     await run_series(series_id, RunSeriesRequest(
-        files={step_a.id: {file_kwartaal["id"]: [kw_pdf_id]},
-               step_b.id: {file_uitdienst["id"]: [ud_pdf_id]}},
-        filenames={kw_pdf_id: kw_filename, ud_pdf_id: ud_filename}))
+        files={s1.id: strook_files,
+               s2.id: {file_journaal["id"]: [j_pdf_id]},
+               s3.id: {},
+               s4.id: {file_aangifte["id"]: [a_pdf_id]},
+               s5.id: {file_reserveringen["id"]: [r_pdf_id]}},
+        filenames={**strook_names, j_pdf_id: j_filename,
+                   a_pdf_id: a_filename, r_pdf_id: r_filename}))
 
-    print(f"✓ Flow 3: {naam} - 2 controles, 1 serie, 3 runs")
+    print(f"✓ Flow: {naam} - 5 controles, 1 serie, 6 runs")
+    return (c1_id, file_strook["id"], strook_files, strook_names,
+            correctie_path, correctie_filename)
+
+
+async def verify_correctie_strook(c1_id, slot_id, strook_files, strook_names,
+                                  correctie_path, correctie_filename):
+    """Run controle 1 with the correctie-strook included; expect exactly one
+    uurloon failure on exactly that file. Leaves no trace in storage."""
+    storage = get_storage()
+    runs_before = set(storage.list_controle_run_ids())
+    pdf_id = str(uuid.uuid4())
+    with open(correctie_path, "rb") as f:
+        storage.upload_pdf(pdf_id, f.read())
+    meta = storage.load_metadata()
+    meta[pdf_id] = {"filename": correctie_filename, "page_count": 1}
+    storage.save_metadata(meta)
+    try:
+        responses = await run_controle(c1_id, RunControleRequest(
+            files={slot_id: strook_files[slot_id] + [pdf_id]},
+            filenames={**strook_names, pdf_id: correctie_filename}))
+        failing = [(r, [rr for rr in r.template_rule_results if not rr.passed])
+                   for r in responses]
+        failing = [(r, bad) for r, bad in failing if bad]
+        assert len(failing) == 1, f"verwacht 1 falende strook, kreeg {len(failing)}"
+        resp, bad = failing[0]
+        assert resp.source_filename == correctie_filename, resp.source_filename
+        assert [rr.rule_name for rr in bad] == ["Uurloon voldoet aan CAO-minimum"], \
+            [rr.rule_name for rr in bad]
+        assert all(fr.status == "ok" for r in responses for fr in r.results), \
+            "veldextractie faalde op een strook"
+    finally:
+        for rid in set(storage.list_controle_run_ids()) - runs_before:
+            for suffix in (".json", "_details.json"):
+                path = os.path.join(STORAGE_DIR, "controle_runs", f"{rid}{suffix}")
+                if os.path.exists(path):
+                    os.remove(path)
+        storage.delete_pdf(pdf_id)
+        meta = storage.load_metadata()
+        meta.pop(pdf_id, None)
+        storage.save_metadata(meta)
+    print("✓ Correctie-strook: 1 strook faalt op precies de uurloon-regel")
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -921,10 +891,11 @@ def verify_runs():
 
 async def main():
     clear_all()
+    if os.path.isdir(SAMPLE_DIR):
+        shutil.rmtree(SAMPLE_DIR)
     os.makedirs(SAMPLE_DIR, exist_ok=True)
-    await seed_flow_bakkerij()
-    await seed_flow_jansen()
-    await seed_flow_van_dijk()
+    ctx = await seed_flow_groene_linde()
+    await verify_correctie_strook(*ctx)
     verify_runs()
 
 
