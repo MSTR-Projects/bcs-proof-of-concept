@@ -70,6 +70,7 @@ const App = () => (
                 <Route path="/controle-series/:id" element={<ProtectedPage><SeriesDetail /></ProtectedPage>} />
                 <Route path="/controle-series/:id/edit" element={<ProtectedPage><SeriesBuilder /></ProtectedPage>} />
                 <Route path="/controle-series/:id/run" element={<ProtectedPage><RunSeries /></ProtectedPage>} />
+                <Route path="/controle-series/:id/run/:runId" element={<ProtectedPage><RunSeries /></ProtectedPage>} />
                 <Route path="/controle-series/:seriesId/run/:runId/step/:stepId" element={<ProtectedPage><RunSeriesStepDetail /></ProtectedPage>} />
                 <Route path="/gallerij" element={<ProtectedPage><Gallery /></ProtectedPage>} />
                 <Route path="/regels" element={<ProtectedPage><RuleLibrary /></ProtectedPage>} />

@@ -74,7 +74,12 @@ export default function RunSeriesStepDetail() {
   return (
     <div className="space-y-4">
       <HeaderAction>
-        <Button variant="outline" className="rounded-full" size="sm" onClick={() => navigate(-1)}>
+        <Button
+          variant="outline"
+          className="rounded-full"
+          size="sm"
+          onClick={() => navigate(`/controle-series/${seriesId}/run/${runId}`)}
+        >
           <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
           Terug naar serie
         </Button>

@@ -147,7 +147,11 @@ export default function SeriesDetail() {
           ) : (
             <div className="space-y-3">
               {runs.map((run) => (
-                <div key={run.id} className="p-3 rounded-lg border space-y-2">
+                <div
+                  key={run.id}
+                  className="p-3 rounded-lg border space-y-2 cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => navigate(`/controle-series/${id}/run/${run.id}`)}
+                >
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">{formatTime(run.runAt)}</span>
                     <Badge

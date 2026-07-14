@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   getControleSeries,
   getControle,
+  getControleSeriesRun,
   runControleSeries,
 } from "@/api/client";
 import FileUploadManager from "@/components/FileUploadManager";
@@ -24,7 +25,7 @@ import type {
   UploadedFile,
 } from "@/types";
 
-type Phase = "upload" | "running" | "results";
+type Phase = "upload" | "running" | "results" | "loading";
 
 interface StepInfo {
   stepId: string;
@@ -36,13 +37,13 @@ interface StepInfo {
 }
 
 export default function RunSeries() {
-  const { id } = useParams<{ id: string }>();
+  const { id, runId } = useParams<{ id: string; runId?: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const [series, setSeries] = useState<ControleSeries | null>(null);
   const [stepInfos, setStepInfos] = useState<StepInfo[]>([]);
-  const [phase, setPhase] = useState<Phase>("upload");
+  const [phase, setPhase] = useState<Phase>(runId ? "loading" : "upload");
   const [assignments, setAssignments] = useState<Record<string, UploadedFile[]>>({});
   const [pool, setPool] = useState<UploadedFile[]>([]);
   const [result, setResult] = useState<ControleSeriesRun | null>(null);
@@ -73,6 +74,21 @@ export default function RunSeries() {
       navigate("/controles");
     });
   }, [id, toast, navigate]);
+
+  useEffect(() => {
+    if (!runId) return;
+    if (result && result.id === runId) return; // just navigated here after a live run
+    setPhase("loading");
+    getControleSeriesRun(runId)
+      .then((run) => {
+        setResult(run);
+        setPhase("results");
+      })
+      .catch(() => {
+        toast({ title: "Run niet gevonden", variant: "destructive" });
+        navigate(`/controle-series/${id}`);
+      });
+  }, [runId, id, result, navigate, toast]);
 
   const slots: SlotDefinition[] = [];
   const conditionLabels: Record<string, string> = {
@@ -121,11 +137,12 @@ export default function RunSeries() {
       const res = await runControleSeries(series.id, files, filenames);
       setResult(res);
       setPhase("results");
+      navigate(`/controle-series/${series.id}/run/${res.id}`, { replace: true });
     } catch {
       toast({ title: "Uitvoeren mislukt", variant: "destructive" });
       setPhase("upload");
     }
-  }, [series, stepInfos, assignments, allSlotsAssigned, toast]);
+  }, [series, stepInfos, assignments, allSlotsAssigned, toast, navigate]);
 
   const stepStatusIcon = (status: SeriesStepResultStatus) => {
     switch (status) {
@@ -153,6 +170,7 @@ export default function RunSeries() {
               setResult(null);
               setAssignments({});
               setPool([]);
+              navigate(`/controle-series/${id}/run`, { replace: true });
             }}
           >
             <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
@@ -180,6 +198,13 @@ export default function RunSeries() {
             <Play className="h-4 w-4 mr-2" />
             Serie uitvoeren
           </Button>
+        </div>
+      )}
+
+      {phase === "loading" && (
+        <div className="py-16 flex flex-col items-center justify-center text-center">
+          <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+          <h2 className="text-lg font-semibold">Resultaten laden...</h2>
         </div>
       )}
 
