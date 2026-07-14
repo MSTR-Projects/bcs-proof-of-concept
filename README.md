@@ -4,6 +4,33 @@ Deterministic PDF data extraction using template-based bounding boxes. No AI —
 
 Draw fields on a PDF, save as a template, then extract structured data from any PDF with the same layout. Supports two-file comparison mode for cross-document validation (e.g., receipt vs invoice).
 
+## The Business Story
+
+BCS supports salaris- and HR-service teams that check their clients' payroll every period. Today that work is manual: a controleur opens the payroll reports, scans them line by line against CAO agreements, contracts and budgets, and writes findings back to the client. It is repetitive, slow, and one tired pair of eyes away from a missed error.
+
+The Controle assistent turns that routine into a repeatable product:
+
+- **Set up once, run every period.** A controle captures what a check looks like: which reports to expect, which numbers matter, and which rules they must satisfy. From then on, running the monthly check is drag, drop, done — seconds instead of hours.
+- **The same check, every time.** Because extraction and rules are deterministic (no AI, no judgment calls), two controleurs — or the same controleur in a busy December — get identical results. Quality no longer depends on who happens to run the check.
+- **Agreements live in one place.** CAO figures, budgets and contract numbers are stored as globale waarden. When the CAO changes in January, you update one number and every check that uses it is instantly current — no hunting through individual controles.
+- **Findings you can stand behind.** Every run is stored: which documents were checked, which values were found, which rules passed or failed, and when. When a client asks "did you check this?", the answer is one click away.
+- **From check to process.** Reeksen chain controles into a period close: if the payroll journal doesn't reconcile, the downstream checks don't run. The month-end routine becomes a single button.
+
+### What's in the box (features in plain terms)
+
+| Feature | What it means for the business |
+|---|---|
+| **Klanten** | Work is organized per client, the way the team already thinks. Each client has its own checks, schedules and history. |
+| **Controles** | Reusable check definitions: expected documents, the values to read from them, and the rules those values must meet. |
+| **Regels** | The professional judgment of a controleur, written down once as visual building blocks — comparisons, totals, completeness checks — that anyone can read and audit. |
+| **Globale waarden** | The single source of truth for CAO figures, budgets and contract data, with version history. |
+| **Reeksen** | Checks chained into a workflow with conditions ("only continue if the previous step passed"), so a full period close runs as one action. |
+| **Geschiedenis** | A permanent, clickable record of every run — the audit trail for internal quality control and client questions. |
+
+### What the sample data represents
+
+The seeded demo mirrors a real service portfolio: a small bakery with a monthly payroll close, an installation company being onboarded as a new client, and a large transport company with a quarterly review. The files in `sample_files/` are the documents a payroll system would actually produce for them — a loonjournaal, an employee list, pension statements, quarterly summaries — with numbers that genuinely reconcile, so every demo scenario behaves like a real engagement.
+
 ## Prerequisites
 
 - Python 3.11+
