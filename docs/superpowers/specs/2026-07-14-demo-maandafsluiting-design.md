@@ -54,7 +54,16 @@ it in about 2 minutes.
   (below CAO minimum). NOT part of any seeded run; exists only in sample_files
   for the live catch moment during the demo.
 
-### Controles (4) and serie (1)
+### Controles (5) and serie (1)
+
+Engine constraint discovered during planning: template rules are evaluated only
+for the FIRST file slot of a controle (`backend/routers/controles.py:245`), and
+the PDF rule pass has no access to spreadsheet grid data (and vice versa). A
+single controle therefore cannot cross-compare a PDF field with a spreadsheet
+aggregate. The aansluiting is instead expressed through the shared global value
+(journaal == global loonsom, xlsx sum == global loonsom), split over two
+single-purpose controles. This also makes each series step simpler to read in
+the demo.
 
 Serie **"Maandafsluiting februari 2026"**, klant De Groene Linde:
 
@@ -66,15 +75,16 @@ Serie **"Maandafsluiting februari 2026"**, klant De Groene Linde:
    - Vakantiegeldpercentage == global Vakantiegeldpercentage
    - Periode == literal "2026-02"
    - Loonheffingsnummer == global Loonheffingsnummer
-2. **Loonjournaal aansluiting** (if_passed) — spreadsheet file first (rules are
-   evaluated on the first file), journaal PDF second. Rules: agg_sum(salary col)
-   == global loonsom; agg_count(persnr col) == global aantal; journaal Totaal
-   bruto == global loonsom; journaal Aantal medewerkers == global aantal;
-   Periode not_empty.
-3. **Loonaangifte controle** (if_passed) — aangifte PDF. Rules: LH-nummer ==
+2. **Loonjournaal maandcontrole** (if_passed) — journaal PDF. Rules: Totaal
+   bruto == global loonsom; Aantal medewerkers == global aantal; LH-nummer ==
+   global; Periode == literal "2026-02".
+3. **Medewerkersbestand aansluiting** (if_passed) — medewerkers XLSX (embedded).
+   Rules: agg_sum(bruto col) == global loonsom; agg_count(persnr col) == global
+   aantal; first persnr not_empty.
+4. **Loonaangifte controle** (if_passed) — aangifte PDF. Rules: LH-nummer ==
    global; Totaal loon loonheffing == global loonsom; Aantal
    inkomstenverhoudingen == global aantal; Periode not_empty.
-4. **Reserveringencontrole** (if_passed) — reserveringen PDF. Rules: Negatieve
+5. **Reserveringencontrole** (if_passed) — reserveringen PDF. Rules: Negatieve
    saldi == literal 0; Totaal vakantiegeldreservering == global; Periode
    not_empty.
 
