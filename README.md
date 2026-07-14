@@ -71,63 +71,88 @@ Generated sample files are copied to `sample_files/<klant>/` (PDF + xlsx per kla
 
 ## Demo Guide
 
-A 15-20 minute walkthrough of all features using the seeded data. Run `seed_demo_data.py` first (see Demo Data above), start backend and frontend, and log in.
+A 15-20 minute walkthrough of all features using the seeded data, written as click-by-click actions. Every step below was verified against the seeded state.
+
+**Preparation (before the demo):**
+
+1. Run the seed script (see Demo Data above).
+2. Start the backend (`uvicorn main:app --reload`) and frontend (`npm run dev`).
+3. Open http://localhost:5173 and log in with `admin@bcs-hr.nl` / `admin123`.
+4. Have the `sample_files/bakkerij-de-gouden-korst/` folder ready in a Finder/Explorer window for drag-and-drop.
 
 The storyline: BCS controleurs check the monthly payroll of their klanten. Instead of eyeballing PDF rapporten by hand, they define a controle once (which files to expect, which values to extract, which rules must hold) and then run it every period in seconds.
 
 ### 1. Dashboard and Klanten (2 min)
 
-- Start on the **Dashboard** for a high-level overview.
-- Open **Klanten**: three seeded customers, each with a different profile:
-  - *Bakkerij de Gouden Korst* (34 medewerkers), monthly close
-  - *Installatiebedrijf Jansen & Zn.* (87), onboarding of a new klant
-  - *Transportbedrijf Van Dijk* (156), quarterly close
-- Click a klant to show the detail panel: its controles, series and teams.
+1. You land on the **Dashboard**: point at the stat cards (controles uitgevoerd, geslaagd, bevindingen) and the "Recente controles" table, all filled by the seeded run history.
+2. In the sidebar, click **Klanten**.
+3. Click **Bakkerij de Gouden Korst** in the list on the left, then **Installatiebedrijf Jansen & Zn.** and **Transportbedrijf Van Dijk**, showing each detail panel: medewerker count, its controles, reeksen and controlegeschiedenis.
 
-Talking point: every controle and reeks belongs to a klant, so work is organized the way the team already thinks.
+Talking point: every controle and reeks belongs to a klant, so work is organized the way the team already thinks. Three profiles: monthly close (34 medewerkers), onboarding (87), quarterly close (156).
 
 ### 2. Globale waarden (2 min)
 
-- Open **Globale waarden**: three CAO groups, one per klant (e.g. "CAO Bakkersbedrijf 2026" with loonheffingsnummer, headcount, loonsom, vakantiegeld percentage).
-- Open a group and show the values, the version number and the audit trail.
+1. In the sidebar under Ontwikkelen, click **Globale waarden**: three CAO groups, one per klant, each with 5 values and a version number.
+2. Click the **CAO Bakkersbedrijf 2026** row: the inline editor opens with the values (Loonheffingsnummer, Aantal medewerkers, Bruto loonsom januari, Vakantiegeld percentage, Minimumuurloon CAO).
+3. Click **Annuleren** to close without changes.
 
 Talking point: CAO numbers and budgets live in one place. Change them here and every controle that references them uses the new value on the next run, no controle needs editing.
 
 ### 3. Anatomy of a controle (4 min)
 
-- Open **Alle controles** and click **Loonjournaal maandcontrole** (Bakkerij), then **Bewerken**.
-- On the Bestanden tab, open the file with **Bewerken** to show the four extraction fields drawn on the PDF (Periode, Loonheffingsnummer, Aantal medewerkers, Totaal bruto). Click **Test uitvoeren** to extract them live; this also unlocks the Regels tab (for PDF controles the rule graph is gated behind a preview extraction).
-- Open the **Regels** tab: the visual rule graph connects PDF fields and globale waarden to comparison and validation nodes, e.g. "LH-nummer komt overeen met CAO-dossier" and "Headcount klopt met contract". Run **Preview uitvoeren** to show 4/4 rules pass. Leave without publishing.
-- Then open **Medewerkersbestand aansluiting** (same klant) via Bewerken: a spreadsheet-based controle (Regels tab opens directly) where aggregate nodes sum the salary column of 34 rows and count the medewerkers, comparing both against the globale waarden.
+1. In the sidebar, click **Alle controles**, then click the **Loonjournaal maandcontrole** row.
+2. On the detail page, point at the stats (1 bestand, 4 velden, 4 regels) and the klant link, then click **Bewerken** (top right).
+3. On the Bestanden tab, click **Bewerken** on the Loonjournaal file card: the PDF opens with four field regions drawn on it (Periode, Loonheffingsnummer, Aantal medewerkers, Totaal bruto).
+4. Click **Test uitvoeren** (bottom left): all four fields extract live and turn green, values appear in the Resultaten panel. This also unlocks the Regels tab (for PDF controles the rule graph is gated behind a preview extraction).
+5. Click **← Bestanden**, then the **Regels** tab: the visual rule graph connects PDF fields and globale waarden to comparison and validation nodes ("LH-nummer komt overeen met CAO-dossier", "Headcount klopt met contract").
+6. Click **Preview uitvoeren** (bottom right): 4/4 validaties geslaagd.
+7. Navigate back via **Alle controles** (breadcrumb) *without* clicking Publiceren.
+8. Optional: open **Medewerkersbestand aansluiting** → **Bewerken** → **Regels** (opens directly for spreadsheet controles) to show aggregate nodes: Σ sums the salary column of 34 rows, # counts medewerkers, both compared against the globale waarden.
 
 Talking point: no code, no AI. Deterministic extraction from drawn regions plus an auditable rule graph.
 
 ### 4. Run a controle (3 min)
 
-- From the detail page of **Loonjournaal maandcontrole**, click run.
-- Upload `sample_files/bakkerij-de-gouden-korst/Loonjournaal_2026-01_Bakkerij_de_Gouden_Korst.pdf` in the Loonjournaal slot and run.
-- Result: 4/4 fields extracted, 4/4 rules passed, with per-rule messages showing the compared values.
+1. Go to **Alle controles** → **Loonjournaal maandcontrole** → **Uitvoeren** (top right).
+2. Drag `Loonjournaal_2026-01_Bakkerij_de_Gouden_Korst.pdf` from `sample_files/bakkerij-de-gouden-korst/` into the upload zone (or click **blader**).
+3. Drag the uploaded file from the pool onto the **Loonjournaal** slot.
+4. Click **Controle uitvoeren**.
+5. Result: **4 velden OK, 4/4 regels geslaagd**, green markers on the document. Click the **Overzicht** tab to show the per-rule results.
 
-Optional "live" beat: go to Globale waarden, change "Aantal medewerkers" from 34 to 35, rerun the controle and watch "Headcount klopt met contract" fail with the exact mismatch in the message. Set it back to 34 afterwards.
+Optional "live" beat (the money shot):
+
+1. Go to **Globale waarden** → click **CAO Bakkersbedrijf 2026** → change *Aantal medewerkers* from 34 to **35** → **Opslaan**.
+2. Rerun the controle (repeat steps 1-4 above).
+3. The header now shows **3/4 regels geslaagd**; in the Overzicht tab, "Headcount klopt met contract" fails with the message `34.0 is not == 35.0`.
+4. Set the global back to **34** and save.
 
 ### 5. Reeksen: chaining controles (3 min)
 
-- Open **Reeksen** and show **Maandafsluiting januari 2026** (Bakkerij): step 1 runs always, step 2 only runs *if step 1 passed*.
-- Run the reeks: upload both files from `sample_files/bakkerij-de-gouden-korst/` (the loonjournaal PDF and the medewerkers xlsx) into the pool and drag each to its step slot; every slot needs a file before the run button enables.
-- Show the step results: both passed. Click a step to open its full extraction detail (fields on the PDF, rule outcomes).
+1. In the sidebar, click **Reeksen**, then the **Maandafsluiting januari 2026** row.
+2. Point at the steps: step 1 *Altijd*, step 2 *Als vorige geslaagd*, plus the Uitvoergeschiedenis below.
+3. Click **Uitvoeren** (top right).
+4. Upload both files from `sample_files/bakkerij-de-gouden-korst/` (the loonjournaal PDF and the medewerkers xlsx) into the pool.
+5. Drag the PDF onto the **Loonjournaal** slot (step: Loonjournaal maandcontrole) and the xlsx onto the **Medewerkersbestand** slot; every slot needs a file before the run button enables.
+6. Click **Serie uitvoeren**: status *Voltooid*, both steps *Geslaagd*.
+7. Click a step row to open its full extraction detail (fields on the document, rule outcomes), then **Terug naar serie**.
 
 Talking point: a periodafsluiting becomes one button. If the journaal does not reconcile, downstream checks are skipped automatically.
 
 ### 6. Geschiedenis and audit (2 min)
 
-- Open **Geschiedenis**: every run is listed per klant and controle with pass/fail counts.
-- Click any run to open its stored result: the extracted fields on the document and the rule outcomes exactly as they were at run time ("Opnieuw" starts a fresh run instead). Runs are also clickable from the Dashboard, the klant detail panel, and reeks step results.
+1. In the sidebar, click **Geschiedenis**: every run listed per klant and controle with veld- and regelscores. If you did the live beat, the 3/4 run sits at the top.
+2. Click any run row: the stored result opens with the extracted fields on the document and the rule outcomes exactly as they were at run time (**Opnieuw** starts a fresh run instead).
+3. Mention that runs are equally clickable from the Dashboard, the klant detail panel and reeks step results.
 
 Talking point: results are persisted, so the controle afdeling has an audit trail of what was checked, when, against which values.
 
 ### 7. Build one from scratch (3 min, optional)
 
-- Click **Controle maken** and walk the wizard: name it, upload a PDF from `sample_pdfs/` (e.g. `sample_verwerkingssignalen.pdf`), draw a field on the document, add a not-empty rule in the rule builder, publish and run it.
+1. In the sidebar, click **Controle maken**.
+2. Upload a PDF from `sample_pdfs/` (e.g. `sample_verwerkingssignalen.pdf`) and give the file a label.
+3. Open the file, use the draw tool to drag a box around a value on the document, and name the field.
+4. Click **Test uitvoeren** to extract it, go to the **Regels** tab, add a validation node (Not Empty) and connect the field to it.
+5. Click **Publiceren**, then run it via **Uitvoeren** with the same PDF.
 
 Talking point: from blank to running controle in a few minutes; that is the whole product loop.
 
