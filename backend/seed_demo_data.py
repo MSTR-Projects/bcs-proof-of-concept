@@ -7,10 +7,12 @@ rule is verified to pass).
 
 Scenario: Maandafsluiting februari 2026 for Hoveniersbedrijf De Groene
 Linde (20 medewerkers). One serie of five controles; the first checks
-all 20 loonstroken in a single run. An extra correctie-loonstrook with
-an uurloon below the CAO-minimum is written to sample_files only (not
-part of any seeded run) for the live demo catch moment; the seeder
-verifies that exactly that strook fails exactly the uurloon rule.
+all 20 loonstroken in a single run. Sample files are numbered (01-24)
+in slot order for easy drag-and-drop. An extra correctie-loonstrook
+with an uurloon below the CAO-minimum is written to
+sample_files/correctie-strook/ only (not part of any seeded run) for
+the live demo catch moment; the seeder verifies that exactly that
+strook fails exactly the uurloon rule.
 
 Generated sample files are also written to <repo>/sample_files/<klant>/ so
 they can be re-uploaded manually in the Run dialogs.
@@ -476,7 +478,7 @@ def seed_series(name, klant_id, klant_name, steps):
     series_id = str(uuid.uuid4())
     save_controle_series(series_id, ControleSeriesCreate(
         name=name, klantId=klant_id, klantName=klant_name,
-        steps=[{"id": str(uuid.uuid4()), "order": i, "controleId": cid,
+        steps=[{"id": str(uuid.uuid4()), "order": i + 1, "controleId": cid,
                 "controleName": cname, "condition": cond}
                for i, (cid, cname, cond) in enumerate(steps)],
     ))
@@ -577,7 +579,7 @@ async def seed_flow_groene_linde():
     region_sets: dict[str, list[dict]] = {lbl: [] for lbl in STROOK_LABELS}
     strook_ids: list[tuple[str, str]] = []
     for m in medewerkers:
-        filename = f"Loonstrook_2026-02_{m['persnr']}.pdf"
+        filename = f"{m['persnr'] - 50100:02d}_Loonstrook_2026-02_{m['persnr']}.pdf"
         tmp = scratch_pdf_path(filename)
         build_pdf(tmp, "Loonstrook februari 2026", strook_meta(m),
                   "Loonstrookregels", STROOK_HEADERS, strook_rows(m), STROOK_NOTE)
@@ -593,7 +595,9 @@ async def seed_flow_groene_linde():
     fout["bruto"] = int(12.80 * fout["uren"] * 4.33) // 10 * 10
     fout["vg_cents"] = fout["bruto"] * 8
     correctie_filename = f"Loonstrook_2026-02_{fout['persnr']}_correctie.pdf"
-    correctie_path = os.path.join(SAMPLE_DIR, slug, correctie_filename)
+    correctie_dir = os.path.join(SAMPLE_DIR, "correctie-strook")
+    os.makedirs(correctie_dir, exist_ok=True)
+    correctie_path = os.path.join(correctie_dir, correctie_filename)
     build_pdf(correctie_path, "Loonstrook februari 2026 (correctie)", strook_meta(fout),
               "Loonstrookregels", STROOK_HEADERS, strook_rows(fout), STROOK_NOTE)
     for lbl in STROOK_LABELS:
@@ -629,7 +633,7 @@ async def seed_flow_groene_linde():
                   "Sanne de Ruiter", [file_strook], rb.result())
 
     # -- Controle 2: Loonjournaal maandcontrole --
-    j_filename = "Loonjournaal_2026-02_De_Groene_Linde.pdf"
+    j_filename = "21_Loonjournaal_2026-02_De_Groene_Linde.pdf"
     j_pdf_id, j_pages, j_regions = make_report(
         j_filename, slug, "Loonjournaal februari 2026",
         meta_pairs=[
@@ -674,7 +678,7 @@ async def seed_flow_groene_linde():
                   "Sanne de Ruiter", [file_journaal], rb.result())
 
     # -- Controle 3: Medewerkersbestand aansluiting (spreadsheet) --
-    ss_filename = "Medewerkers_2026-02_De_Groene_Linde.xlsx"
+    ss_filename = "22_Medewerkers_2026-02_De_Groene_Linde.xlsx"
     ss_id, sheet_data = register_spreadsheet(
         ["Persnr", "Naam", "Functie", "Uren per week", "Uurloon", "Bruto maandsalaris"],
         [[m["persnr"], m["naam"], m["functie"], m["uren"], m["uurloon"], m["bruto"]]
@@ -699,7 +703,7 @@ async def seed_flow_groene_linde():
                   "Sanne de Ruiter", [file_medewerkers], rb.result())
 
     # -- Controle 4: Loonaangifte controle --
-    a_filename = "Loonaangifte_2026-02_De_Groene_Linde.pdf"
+    a_filename = "23_Loonaangifte_2026-02_De_Groene_Linde.pdf"
     a_pdf_id, a_pages, a_regions = make_report(
         a_filename, slug, "Loonaangifte februari 2026",
         meta_pairs=[
@@ -743,7 +747,7 @@ async def seed_flow_groene_linde():
                   "Sanne de Ruiter", [file_aangifte], rb.result())
 
     # -- Controle 5: Reserveringencontrole --
-    r_filename = "Reserveringen_2026-02_De_Groene_Linde.pdf"
+    r_filename = "24_Reserveringen_2026-02_De_Groene_Linde.pdf"
     r_pdf_id, r_pages, r_regions = make_report(
         r_filename, slug, "Reserveringenoverzicht februari 2026",
         meta_pairs=[

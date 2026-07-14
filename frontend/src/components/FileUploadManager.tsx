@@ -37,6 +37,23 @@ export default function FileUploadManager({ slots, onAssignmentsChange, onPoolCh
     onPoolChange?.(next);
   }, [onPoolChange]);
 
+  // Auto-assign an uploaded file to the first slot whose label matches its
+  // filename (e.g. "01_Loonstrook_...pdf" -> slot "Loonstrook").
+  const matchSlot = useCallback((file: UploadedFile): SlotDefinition | undefined => {
+    const nameTokens = file.filename
+      .toLowerCase()
+      .replace(/\.(pdf|xlsx)$/, "")
+      .split(/[^a-z]+/)
+      .filter((t) => t.length >= 4);
+    return slots.find((slot) => {
+      if (slot.fileType !== file.type) return false;
+      const labelTokens = slot.label.toLowerCase().split(/[^a-z]+/).filter((t) => t.length >= 4);
+      return labelTokens.some((lt) =>
+        nameTokens.some((nt) => nt.startsWith(lt) || lt.startsWith(nt))
+      );
+    });
+  }, [slots]);
+
   const handleFiles = useCallback(async (files: FileList) => {
     setUploading(true);
     const newPoolFiles: UploadedFile[] = [];
@@ -63,9 +80,19 @@ export default function FileUploadManager({ slots, onAssignmentsChange, onPoolCh
     if (newPoolFiles.length > 0) {
       const nextPool = [...pool, ...newPoolFiles];
       updatePool(nextPool);
+
+      const nextAssignments = { ...assignments };
+      for (const f of newPoolFiles) {
+        const slot = matchSlot(f);
+        if (!slot) continue;
+        const current = nextAssignments[slot.key] ?? [];
+        if (current.some((x) => x.id === f.id)) continue;
+        nextAssignments[slot.key] = [...current, f];
+      }
+      updateAssignments(nextAssignments);
     }
     setUploading(false);
-  }, [pool, toast, updatePool]);
+  }, [pool, toast, updatePool, assignments, matchSlot, updateAssignments]);
 
   const handleDropZone = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -97,6 +124,10 @@ export default function FileUploadManager({ slots, onAssignmentsChange, onPoolCh
     const next = { ...assignments, [slotKey]: current.filter((f) => f.id !== fileId) };
     updateAssignments(next);
   }, [assignments, updateAssignments]);
+
+  const assignedIds = new Set(
+    Object.values(assignments).flat().map((f) => f.id)
+  );
 
   // Group slots by group (for series)
   const groups = new Map<string | undefined, SlotDefinition[]>();
@@ -161,13 +192,16 @@ export default function FileUploadManager({ slots, onAssignmentsChange, onPoolCh
         {/* Pool chips */}
         {pool.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {pool.map((f) => (
-              <DraggableFileChip
-                key={f.id}
-                file={f}
-                onRemove={() => removeFromPool(f.id)}
-              />
-            ))}
+            {[...pool]
+              .sort((a, b) => a.filename.localeCompare(b.filename, undefined, { numeric: true }))
+              .map((f) => (
+                <DraggableFileChip
+                  key={f.id}
+                  file={f}
+                  assigned={assignedIds.has(f.id)}
+                  onRemove={() => removeFromPool(f.id)}
+                />
+              ))}
           </div>
         )}
       </div>
